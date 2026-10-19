@@ -19,15 +19,55 @@ export class CommandDispatcher {
       case "create":
         this.requireArity(args, 2, Number.MAX_SAFE_INTEGER, "create <type> <id> [params] [in <containerId>]");
         return this.create(args);
+      case "delete":
+        this.requireArity(args, 1, 1, "delete <id>");
+        return this.editor.delete(args[0]);
+      case "move":
+        this.requireArity(args, 3, 3, "move <id> <dx> <dy>");
+        return this.editor.move(args[0], this.number(args[1]), this.number(args[2]));
+      case "scale":
+        this.requireArity(args, 2, 2, "scale <id> <factor>");
+        return this.editor.scale(args[0], this.number(args[1]));
+      case "set":
+        this.requireArity(args, 3, 3, "set <id> <attr> <value>");
+        return this.editor.set(args[0], args[1], args[2]);
+      case "group":
+        this.requireArity(args, 2, Number.MAX_SAFE_INTEGER, "group <newGid> <id1> <id2> ...");
+        return this.editor.group(args[0], args.slice(1));
+      case "ungroup":
+        this.requireArity(args, 1, 1, "ungroup <gid>");
+        return this.editor.ungroup(args[0]);
+      case "addto":
+        this.requireArity(args, 2, 2, "addto <gid> <id>");
+        return this.editor.addTo(args[0], args[1]);
+      case "front":
+        this.requireArity(args, 1, 1, "front <id>");
+        return this.editor.reorder(args[0], true);
+      case "back":
+        this.requireArity(args, 1, 1, "back <id>");
+        return this.editor.reorder(args[0], false);
       case "tree":
         this.requireArity(args, 0, 1, "tree [id]");
         return this.editor.tree(args[0]);
       case "show":
         this.requireArity(args, 1, 1, "show <id>");
         return this.editor.show(args[0]);
+      case "undo":
+        this.requireArity(args, 0, 0, "undo");
+        return this.editor.undo();
+      case "redo":
+        this.requireArity(args, 0, 0, "redo");
+        return this.editor.redo();
       case "help":
         this.requireArity(args, 0, 0, "help");
-        return "Available now: init [w] [h], canvas [w] [h], create <type> <id> [params] [in <gid>], tree [id], show <id>, help.";
+        return [
+          "Commands:",
+          "  init [w] [h] | canvas [w] [h]",
+          "  create <type> <id> [params] [in <gid>] | delete <id>",
+          "  move <id> <dx> <dy> | scale <id> <factor> | set <id> <attr> <value>",
+          "  group <gid> <id...> | ungroup <gid> | addto <gid> <id>",
+          "  front <id> | back <id> | tree [id] | show <id> | undo | redo | help"
+        ].join("\n");
       default:
         throw new Error(`unknown command: ${name}`);
     }

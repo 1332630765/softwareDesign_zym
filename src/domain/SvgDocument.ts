@@ -29,4 +29,17 @@ export class SvgDocument {
     };
     return search(this.root);
   }
+
+  snapshot(): SvgDocument {
+    const copy = new SvgDocument(this.widthValue, this.heightValue);
+    for (const child of this.root.children) copy.root.add(child.clone());
+    return copy;
+  }
+
+  restore(snapshot: SvgDocument): void {
+    for (const child of [...this.root.children]) this.root.remove(child);
+    this.widthValue = snapshot.width;
+    this.heightValue = snapshot.height;
+    for (const child of snapshot.root.children) this.root.add(child.clone());
+  }
 }
