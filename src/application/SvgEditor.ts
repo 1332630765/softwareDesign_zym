@@ -6,17 +6,46 @@ import { TextShape } from "../domain/TextShape.js";
 import { NumberFormatter } from "../domain/NumberFormatter.js";
 import { CommandHistory } from "./CommandHistory.js";
 import { SnapshotCommand } from "./SnapshotCommand.js";
+import { SvgFileStore } from "../infrastructure/SvgFileStore.js";
+import { SvgParser } from "../infrastructure/SvgParser.js";
+import { SvgSerializer } from "../infrastructure/SvgSerializer.js";
 
 export class SvgEditor {
   private current?: SvgDocument;
+  private currentPath?: string;
   private readonly history = new CommandHistory();
-  constructor(private readonly factory = new ShapeFactory()) {}
+  constructor(
+    private readonly factory = new ShapeFactory(),
+    private readonly files = new SvgFileStore(),
+    private readonly parser = new SvgParser(),
+    private readonly serializer = new SvgSerializer()
+  ) {}
 
   init(width = 800, height = 600): string {
     this.validateSize(width, height);
     this.current = new SvgDocument(width, height);
+    this.currentPath = undefined;
     this.history.afterIo();
     return `canvas ${this.current.dimensions()} created`;
+  }
+
+  read(file: string): string {
+    const { path, content } = this.files.read(file);
+    const result = this.parser.parse(content);
+    this.current = result.document;
+    this.currentPath = path;
+    this.history.afterIo();
+    return [...result.warnings, `read ${file} (${result.document.count()} elements)`].join("\n");
+  }
+
+  save(file?: string): string {
+    const document = this.requireDocument();
+    const target = file ?? this.currentPath;
+    if (!target) throw new Error("no file path. use 'save <file.svg>'");
+    const path = this.files.write(target, this.serializer.serialize(document));
+    this.currentPath = path;
+    this.history.afterIo();
+    return `saved to ${file ?? target} (${document.count()} elements)`;
   }
 
   canvas(width?: number, height?: number): string {

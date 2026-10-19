@@ -12,6 +12,12 @@ export class CommandDispatcher {
       case "init":
         this.requireArity(args, 0, 2, "init [w] [h]");
         return this.editor.init(this.number(args[0], 800), this.number(args[1], 600));
+      case "read":
+        this.requireArity(args, 1, 1, "read <file.svg>");
+        return this.editor.read(args[0]);
+      case "save":
+        this.requireArity(args, 0, 1, "save [file.svg]");
+        return this.editor.save(args[0]);
       case "canvas":
         this.requireArity(args, 0, 2, "canvas [w] [h]");
         if (args.length === 1) throw new Error("usage: canvas [w] [h]");
@@ -62,7 +68,7 @@ export class CommandDispatcher {
         this.requireArity(args, 0, 0, "help");
         return [
           "Commands:",
-          "  init [w] [h] | canvas [w] [h]",
+          "  init [w] [h] | read <file.svg> | save [file.svg] | canvas [w] [h]",
           "  create <type> <id> [params] [in <gid>] | delete <id>",
           "  move <id> <dx> <dy> | scale <id> <factor> | set <id> <attr> <value>",
           "  group <gid> <id...> | ungroup <gid> | addto <gid> <id>",

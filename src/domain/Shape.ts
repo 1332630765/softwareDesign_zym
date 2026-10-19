@@ -19,6 +19,10 @@ export abstract class Shape {
     this.attributes.set(attribute, value);
   }
 
+  importAttribute(attribute: string, value: string): void {
+    this.attributes.set(attribute, value);
+  }
+
   setParent(parent: Group | null): void { this.parentValue = parent; }
 
   protected commonAttributes(): string[] { return ["fill", "stroke", "stroke-width"]; }

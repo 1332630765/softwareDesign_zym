@@ -16,6 +16,13 @@ export class SvgDocument {
 
   dimensions(): string { return `${this.widthValue}x${this.heightValue}`; }
 
+  count(): number {
+    const countChildren = (group: Group): number => group.children.reduce(
+      (total, child) => total + 1 + (child instanceof Group ? countChildren(child) : 0), 0
+    );
+    return countChildren(this.root);
+  }
+
   find(id: string): Shape | undefined {
     const search = (group: Group): Shape | undefined => {
       for (const child of group.children) {
