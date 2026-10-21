@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SvgEditor } from "../application/SvgEditor.js";
@@ -38,7 +38,7 @@ test("read assigns collision-free ids and retains supported and extra SVG attrib
   t.after(() => rmSync(folder, { recursive: true, force: true }));
   const file = join(folder, "external.svg");
   const output = join(folder, "copy.svg");
-  writeFileSync(file, '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="400px" height="300" viewBox="0 0 400 300"><g id="scene" transform="translate(5,6)"><rect x="0" y="0" width="20" height="10" stroke-width="2"/><rect id="rect1" x="30" y="0" width="10" height="10"/><text x="1" y="2">A &amp; B</text></g></svg>');
+  writeFileSync(file, '<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="400px" height="300" viewBox="50 60 400 300" preserveAspectRatio="xMidYMid meet"><g id="scene" transform="translate(5,6)"><rect x="0" y="0" width="20" height="10" stroke-width="2"/><rect id="rect1" x="30" y="0" width="10" height="10"/><text x="1" y="2">A &amp; B</text></g></svg>');
   const cli = new CommandDispatcher(new SvgEditor());
   const feedback = cli.dispatch(`read "${file}"`);
   assert.match(feedback, /warning: assigned id rect2 to unnamed <rect>/);
@@ -48,19 +48,22 @@ test("read assigns collision-free ids and retains supported and extra SVG attrib
   const saved = readFileSync(output, "utf8");
   assert.match(saved, /transform="translate\(5,6\)"/);
   assert.match(saved, /stroke-width="2"/);
-  assert.match(saved, /width="400" height="300"/);
+  assert.match(saved, /width="400" height="300" viewBox="50 60 400 300" preserveAspectRatio="xMidYMid meet"/);
 });
 
 test("failed read and save do not replace document or history", t => {
   const folder = mkdtempSync(join(tmpdir(), "svg-editor-"));
   t.after(() => rmSync(folder, { recursive: true, force: true }));
   const invalid = join(folder, "invalid.svg");
+  const malformed = join(folder, "malformed.svg");
   writeFileSync(invalid, '<svg><rect id="same"/><circle id="same"/></svg>');
+  writeFileSync(malformed, '<svg><g><rect/></svg>');
   const cli = new CommandDispatcher(new SvgEditor());
   cli.dispatch("init");
   cli.dispatch("create rect keep 1 2 3 4");
   const before = cli.dispatch("tree");
   assert.throws(() => cli.dispatch(`read "${invalid}"`), /id already exists: same/);
+  assert.throws(() => cli.dispatch(`read "${malformed}"`), /invalid SVG:/);
   assert.throws(() => cli.dispatch(`read "${join(folder, "missing.svg")}"`), /cannot read file:/);
   assert.throws(() => cli.dispatch(`save "${join(folder, "missing", "bad.svg")}"`), /cannot write file:/);
   assert.equal(cli.dispatch("tree"), before);
@@ -75,4 +78,39 @@ test("unsupported SVG elements are rejected instead of silently lost", t => {
   writeFileSync(file, '<svg xmlns="http://www.w3.org/2000/svg"><path id="p" d="M0 0"/></svg>');
   const cli = new CommandDispatcher(new SvgEditor());
   assert.throws(() => cli.dispatch(`read "${file}"`), /invalid SVG: unsupported element <path>/);
+  writeFileSync(file, '<svg><g id="g">unexpected text</g></svg>');
+  assert.throws(() => cli.dispatch(`read "${file}"`), /unsupported text content in <g>/);
+  writeFileSync(file, '<svg><rect id="r" width="10" height="10">unexpected text</rect></svg>');
+  assert.throws(() => cli.dispatch(`read "${file}"`), /unsupported text content in <rect>/);
+});
+
+test("read rejects non-SVG numeric notation", t => {
+  const folder = mkdtempSync(join(tmpdir(), "svg-editor-"));
+  t.after(() => rmSync(folder, { recursive: true, force: true }));
+  const file = join(folder, "hex.svg");
+  writeFileSync(file, '<svg width="400" height="200"><rect id="r" x="0x10" y="0" width="10" height="10"/></svg>');
+  const cli = new CommandDispatcher(new SvgEditor());
+  assert.throws(() => cli.dispatch(`read "${file}"`), /invalid SVG: invalid x: 0x10/);
+  writeFileSync(file, '<svg width="400" height="200"><circle id="c" cx="0" cy="0" r="-1"/></svg>');
+  assert.throws(() => cli.dispatch(`read "${file}"`), /invalid SVG: invalid r: -1/);
+  writeFileSync(file, '<svg><rect id="bad id" width="10" height="10"/></svg>');
+  assert.throws(() => cli.dispatch(`read "${file}"`), /invalid SVG: invalid id: bad id/);
+});
+
+test("save replaces an existing file and cleans temporary output on failure", t => {
+  const folder = mkdtempSync(join(tmpdir(), "svg-editor-"));
+  t.after(() => rmSync(folder, { recursive: true, force: true }));
+  const file = join(folder, "existing.svg");
+  writeFileSync(file, "old content");
+  const cli = new CommandDispatcher(new SvgEditor());
+  cli.dispatch("init");
+  cli.dispatch("create rect r 1 2 3 4");
+  cli.dispatch(`save "${file}"`);
+  assert.match(readFileSync(file, "utf8"), /<rect id="r"/);
+  cli.dispatch("create circle c 1 2 3");
+  assert.throws(() => cli.dispatch(`save "${folder}"`), /cannot write file:/);
+  assert.deepEqual(readdirSync(folder), ["existing.svg"]);
+  assert.doesNotMatch(readFileSync(file, "utf8"), /<circle id="c"/);
+  cli.dispatch("undo");
+  assert.doesNotMatch(cli.dispatch("tree"), /circle#c/);
 });

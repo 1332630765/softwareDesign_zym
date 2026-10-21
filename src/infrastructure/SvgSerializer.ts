@@ -6,9 +6,11 @@ import { XmlCodec } from "./XmlCodec.js";
 
 export class SvgSerializer {
   serialize(document: SvgDocument): string {
+    const rootAttributes = [...document.rootAttributes]
+      .map(([name, value]) => `${name}="${XmlCodec.escape(value)}"`);
     const lines = [
       '<?xml version="1.0" encoding="UTF-8"?>',
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${document.width}" height="${document.height}" viewBox="0 0 ${document.width} ${document.height}">`
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${document.width}" height="${document.height}" viewBox="${XmlCodec.escape(document.viewBox)}"${rootAttributes.length ? ` ${rootAttributes.join(" ")}` : ""}>`
     ];
     for (const shape of document.root.children) this.write(shape, 1, lines);
     lines.push("</svg>");

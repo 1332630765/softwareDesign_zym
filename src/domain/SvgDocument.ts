@@ -2,16 +2,33 @@ import { Group } from "./Group.js";
 import { Shape } from "./Shape.js";
 
 export class SvgDocument {
-  readonly root = new Group("__root__");
+  static isValidId(id: string): boolean { return id.length > 0 && !/\s/u.test(id); }
 
-  constructor(private widthValue: number, private heightValue: number) {}
+  readonly root = new Group("__root__");
+  private readonly rootAttributesValue: Map<string, string>;
+
+  constructor(
+    private widthValue: number,
+    private heightValue: number,
+    private viewBoxValue = `0 0 ${widthValue} ${heightValue}`,
+    rootAttributes = new Map<string, string>()
+  ) {
+    this.rootAttributesValue = new Map(rootAttributes);
+  }
 
   get width(): number { return this.widthValue; }
   get height(): number { return this.heightValue; }
+  get viewBox(): string { return this.viewBoxValue; }
+  get rootAttributes(): ReadonlyMap<string, string> { return this.rootAttributesValue; }
+
+  importRootAttribute(name: string, value: string): void {
+    this.rootAttributesValue.set(name, value);
+  }
 
   resize(width: number, height: number): void {
     this.widthValue = width;
     this.heightValue = height;
+    this.viewBoxValue = `0 0 ${width} ${height}`;
   }
 
   dimensions(): string { return `${this.widthValue}x${this.heightValue}`; }
@@ -38,7 +55,8 @@ export class SvgDocument {
   }
 
   snapshot(): SvgDocument {
-    const copy = new SvgDocument(this.widthValue, this.heightValue);
+    const copy = new SvgDocument(this.widthValue, this.heightValue,
+      this.viewBoxValue, this.rootAttributesValue);
     for (const child of this.root.children) copy.root.add(child.clone());
     return copy;
   }
@@ -47,6 +65,9 @@ export class SvgDocument {
     for (const child of [...this.root.children]) this.root.remove(child);
     this.widthValue = snapshot.width;
     this.heightValue = snapshot.height;
+    this.viewBoxValue = snapshot.viewBox;
+    this.rootAttributesValue.clear();
+    for (const [name, value] of snapshot.rootAttributes) this.rootAttributesValue.set(name, value);
     for (const child of snapshot.root.children) this.root.add(child.clone());
   }
 }

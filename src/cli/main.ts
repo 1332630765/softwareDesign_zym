@@ -15,7 +15,8 @@ input.on("line", line => {
     const result = dispatcher.dispatch(line);
     if (result) console.log(result);
   } catch (error) {
-    console.log(`error: ${error instanceof Error ? error.message : String(error)}`);
+    const message = error instanceof Error ? error.message : String(error);
+    console.log(`error: ${message.replace(/\s*\r?\n\s*/g, " ")}`);
   }
   if (!closed) input.prompt();
 });

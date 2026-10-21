@@ -69,7 +69,12 @@ export class CommandDispatcher {
         return [
           "Commands:",
           "  init [w] [h] | read <file.svg> | save [file.svg] | canvas [w] [h]",
-          "  create <type> <id> [params] [in <gid>] | delete <id>",
+          "  create rect <id> <x> <y> <w> <h> [fill] [in <gid>]",
+          "  create circle <id> <cx> <cy> <r> [fill] [in <gid>]",
+          "  create ellipse <id> <cx> <cy> <rx> <ry> [fill] [in <gid>]",
+          "  create line <id> <x1> <y1> <x2> <y2> [stroke] [in <gid>]",
+          "  create text <id> <x> <y> \"content\" [in <gid>]",
+          "  create g <id> [in <gid>] | delete <id>",
           "  move <id> <dx> <dy> | scale <id> <factor> | set <id> <attr> <value>",
           "  group <gid> <id...> | ungroup <gid> | addto <gid> <id>",
           "  front <id> | back <id> | tree [id] | show <id> | undo | redo | help"
@@ -80,12 +85,10 @@ export class CommandDispatcher {
   }
 
   private create(args: string[]): string {
-    const marker = args.lastIndexOf("in");
     let containerId: string | undefined;
-    if (marker >= 2) {
-      if (marker !== args.length - 2) throw new Error("'in' must be followed by one container id");
-      containerId = args[marker + 1];
-      args = args.slice(0, marker);
+    if (args.length >= 4 && args[args.length - 2] === "in") {
+      containerId = args[args.length - 1];
+      args = args.slice(0, -2);
     }
     return this.editor.create(args[0], args[1], args.slice(2), containerId);
   }
@@ -93,7 +96,10 @@ export class CommandDispatcher {
   private number(value: string | undefined, fallback?: number): number {
     if (value === undefined && fallback !== undefined) return fallback;
     const number = Number(value);
-    if (value === undefined || !Number.isFinite(number)) throw new Error(`invalid number: ${value}`);
+    if (value === undefined || !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value.trim())
+      || !Number.isFinite(number)) {
+      throw new Error(`invalid number: ${value}`);
+    }
     return number;
   }
 

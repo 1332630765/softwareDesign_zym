@@ -61,6 +61,7 @@ export class SvgEditor {
   create(type: string, id: string, args: string[], containerId?: string): string {
     const document = this.requireDocument();
     if (!id) throw new Error("id is required");
+    if (!SvgDocument.isValidId(id)) throw new Error(`invalid id: ${id}`);
     if (document.find(id)) throw new Error(`id already exists: ${id}`);
 
     let parent = document.root;
@@ -111,7 +112,7 @@ export class SvgEditor {
     if (!shape.allowedAttributes().has(attribute)) throw new Error(`unknown attribute: ${attribute}`);
     const numeric = new Set(["x", "y", "width", "height", "cx", "cy", "r", "rx", "ry",
       "x1", "y1", "x2", "y2", "stroke-width"]);
-    if (numeric.has(attribute) && !Number.isFinite(Number(value))) {
+    if (numeric.has(attribute) && !NumberFormatter.isGeometryValue(attribute, value)) {
       throw new Error(`invalid number: ${value}`);
     }
     const previous = shape.get(attribute);
@@ -124,6 +125,7 @@ export class SvgEditor {
     if (ids.length === 0) throw new Error("usage: group <newGid> <id1> <id2> ...");
     const document = this.requireDocument();
     if (!id) throw new Error("id is required");
+    if (!SvgDocument.isValidId(id)) throw new Error(`invalid id: ${id}`);
     if (document.find(id)) throw new Error(`id already exists: ${id}`);
     const shapes = ids.map(shapeId => this.requireShape(shapeId));
     if (new Set(shapes).size !== shapes.length) throw new Error("duplicate shape in group");
@@ -205,10 +207,16 @@ export class SvgEditor {
     const document = this.requireDocument();
     const shape = this.requireShape(id);
     const parent = shape.parent === document.root ? "svg" : `g#${shape.parent!.id}`;
-    const details = [...shape.attrs].map(([name, value]) => `${name}=${value}`);
-    if (shape instanceof Group) details.push(`children=${shape.children.length}`);
-    if (shape instanceof TextShape) details.push(`text="${shape.content}"`);
-    return `${shape.type}#${shape.id}  parent=${parent}\n  ${details.join(" ")}`;
+    const styleNames = new Set(["fill", "stroke", "stroke-width"]);
+    const attributes = [...shape.attrs];
+    const geometry = attributes.filter(([name]) => !styleNames.has(name));
+    const styles = attributes.filter(([name]) => styleNames.has(name));
+    const lines = [`${shape.type}#${shape.id}  parent=${parent}`];
+    if (geometry.length) lines.push(`  ${geometry.map(([name, value]) => `${name}=${value}`).join(" ")}`);
+    if (styles.length) lines.push(`  ${styles.map(([name, value]) => `${name}=${value}`).join(" ")}`);
+    if (shape instanceof Group) lines.push(`  children=${shape.children.length}`);
+    if (shape instanceof TextShape) lines.push(`  text="${shape.content}"`);
+    return lines.join("\n");
   }
 
   private requireShape(id: string): Shape {

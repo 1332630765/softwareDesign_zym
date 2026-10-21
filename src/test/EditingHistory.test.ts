@@ -100,3 +100,20 @@ test("each leaf shape uses its own geometry when moved and scaled", () => {
   cli.dispatch("scale l 2");
   assert.match(cli.dispatch("show l"), /x1=12 y1=-6 x2=16 y2=-2/);
 });
+
+test("group collects shapes from different parents in document order and undoes atomically", () => {
+  const cli = new CommandDispatcher(new SvgEditor());
+  cli.dispatch("init");
+  cli.dispatch("create g left");
+  cli.dispatch("create rect a 0 0 1 1 in left");
+  cli.dispatch("create rect b 1 0 1 1");
+  cli.dispatch("create g right");
+  cli.dispatch("create circle c 2 0 1 in right");
+  const before = cli.dispatch("tree");
+  cli.dispatch("group collected c b a");
+  const grouped = cli.dispatch("tree collected");
+  assert.ok(grouped.indexOf("rect#a") < grouped.indexOf("rect#b"));
+  assert.ok(grouped.indexOf("rect#b") < grouped.indexOf("circle#c"));
+  cli.dispatch("undo");
+  assert.equal(cli.dispatch("tree"), before);
+});
