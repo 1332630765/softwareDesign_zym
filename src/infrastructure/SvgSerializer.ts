@@ -21,14 +21,14 @@ export class SvgSerializer {
     const indent = "  ".repeat(depth);
     const attributes = [`id="${XmlCodec.escape(shape.id)}"`,
       ...[...shape.attrs].map(([name, value]) => `${name}="${XmlCodec.escape(value)}"`)];
-    const opening = `${indent}<${shape.type} ${attributes.join(" ")}`;
+    const opening = `${indent}<${shape.svgTag} ${attributes.join(" ")}`;
     if (shape instanceof Group) {
       if (shape.children.length === 0) { lines.push(`${opening}/>`); return; }
       lines.push(`${opening}>`);
       for (const child of shape.children) this.write(child, depth + 1, lines);
-      lines.push(`${indent}</g>`);
+      lines.push(`${indent}</${shape.svgTag}>`);
     } else if (shape instanceof TextShape) {
-      lines.push(`${opening}>${XmlCodec.escape(shape.content)}</text>`);
+      lines.push(`${opening}>${XmlCodec.escape(shape.content)}</${shape.svgTag}>`);
     } else {
       lines.push(`${opening}/>`);
     }

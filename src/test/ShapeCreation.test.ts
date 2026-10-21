@@ -37,3 +37,11 @@ test("create validates ids, types, parameters and container before mutation", ()
   assert.throws(() => cli.dispatch('create text t1 1 2 "unterminated'), /unterminated quote/);
   assert.equal(cli.dispatch("tree"), before);
 });
+
+test("the virtual root does not reserve a user-visible id", () => {
+  const cli = new CommandDispatcher(new SvgEditor());
+  cli.dispatch("init");
+  cli.dispatch("create rect __root__ 0 0 10 10");
+  assert.match(cli.dispatch("tree"), /rect#__root__/);
+  assert.match(cli.dispatch("show __root__"), /parent=svg/);
+});

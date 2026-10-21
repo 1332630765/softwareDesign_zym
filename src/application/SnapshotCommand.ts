@@ -19,7 +19,11 @@ export class SnapshotCommand implements Command {
       this.after = this.document.snapshot();
       return result;
     } catch (error) {
-      this.document.restore(this.before);
+      try {
+        this.document.restore(this.before);
+      } catch (restoreError) {
+        throw new AggregateError([error, restoreError], "edit failed and rollback failed");
+      }
       throw error;
     }
   }

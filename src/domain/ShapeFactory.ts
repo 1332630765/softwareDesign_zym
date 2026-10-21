@@ -5,82 +5,55 @@ import { Circle } from "./Circle.js";
 import { Ellipse } from "./Ellipse.js";
 import { Line } from "./Line.js";
 import { TextShape } from "./TextShape.js";
-import { NumberFormatter } from "./NumberFormatter.js";
+import { ShapeProvider } from "./ShapeProvider.js";
+import { BuiltinShapeProvider } from "./BuiltinShapeProvider.js";
 
 export class ShapeFactory {
-  private readonly svgCoordinates = new Map<string, string[]>([
-    ["rect", ["x", "y", "width", "height"]],
-    ["circle", ["cx", "cy", "r"]],
-    ["ellipse", ["cx", "cy", "rx", "ry"]],
-    ["line", ["x1", "y1", "x2", "y2"]],
-    ["text", ["x", "y"]]
-  ]);
+  private readonly byType = new Map<string, ShapeProvider>();
+  private readonly bySvg = new Map<string, ShapeProvider>();
+  private readonly svgTags = new Set<string>();
 
-  supports(type: string): boolean { return type === "g" || this.svgCoordinates.has(type); }
+  constructor() {
+    this.register(new BuiltinShapeProvider("g", [], undefined, false,
+      id => new Group(id), "usage: create g <id>"));
+    this.register(new BuiltinShapeProvider("rect", ["x", "y", "width", "height"], "fill", false,
+      (id, attributes) => new Rect(id, attributes)));
+    this.register(new BuiltinShapeProvider("circle", ["cx", "cy", "r"], "fill", false,
+      (id, attributes) => new Circle(id, attributes)));
+    this.register(new BuiltinShapeProvider("ellipse", ["cx", "cy", "rx", "ry"], "fill", false,
+      (id, attributes) => new Ellipse(id, attributes)));
+    this.register(new BuiltinShapeProvider("line", ["x1", "y1", "x2", "y2"], "stroke", false,
+      (id, attributes) => new Line(id, attributes)));
+    this.register(new BuiltinShapeProvider("text", ["x", "y"], undefined, true,
+      (id, attributes, content) => new TextShape(id, attributes, content)));
+  }
 
-  fromSvg(type: string, id: string, attributes: Map<string, string>, content: string): Shape {
-    const fields = this.svgCoordinates.get(type) ?? [];
-    const values = fields.map(name => this.svgNumber(attributes.get(name) ?? "0", name));
-    const optional = type === "line" ? attributes.get("stroke") : attributes.get("fill");
-    const args = type === "text" ? [...values, content]
-      : type === "g" ? [] : [...values, ...(optional === undefined ? [] : [optional])];
-    const shape = this.create(type, id, args);
-    for (const [name, rawValue] of attributes) {
-      const value = fields.includes(name) ? this.svgNumber(rawValue, name) : rawValue;
-      if (name === "stroke-width") this.svgNumber(value, name);
-      shape.importAttribute(name, value);
+  register(provider: ShapeProvider): void {
+    const key = this.svgKey(provider.svgTag, provider.svgKind);
+    if (this.byType.has(provider.type) || this.bySvg.has(key)) {
+      throw new Error(`shape provider already registered: ${provider.type}`);
     }
-    return shape;
+    this.byType.set(provider.type, provider);
+    this.bySvg.set(key, provider);
+    this.svgTags.add(provider.svgTag);
   }
 
-  private svgNumber(value: string, name: string): string {
-    const normalized = value.trim().replace(/px$/i, "");
-    const number = Number(normalized);
-    if (!NumberFormatter.isGeometryValue(name, normalized)) throw new Error(`invalid SVG: invalid ${name}: ${value}`);
-    return number.toString();
-  }
+  supports(type: string): boolean { return this.byType.has(type); }
+  supportsSvg(tag: string): boolean { return this.svgTags.has(tag); }
 
   create(type: string, id: string, args: string[]): Shape {
-    const numeric = (names: string[], min: number, max: number): Map<string, string> => {
-      if (args.length < min || args.length > max) throw new Error(`invalid parameters for ${type}`);
-      const attributes = new Map<string, string>();
-      names.forEach((name, index) => {
-        if (!NumberFormatter.isGeometryValue(name, args[index])) {
-          throw new Error(`invalid number: ${args[index]}`);
-        }
-        attributes.set(name, args[index]);
-      });
-      return attributes;
-    };
-
-    if (type === "g") {
-      if (args.length !== 0) throw new Error("usage: create g <id>");
-      return new Group(id);
-    }
-    if (type === "rect") {
-      const attributes = numeric(["x", "y", "width", "height"], 4, 5);
-      if (args[4] !== undefined) attributes.set("fill", args[4]);
-      return new Rect(id, attributes);
-    }
-    if (type === "circle") {
-      const attributes = numeric(["cx", "cy", "r"], 3, 4);
-      if (args[3] !== undefined) attributes.set("fill", args[3]);
-      return new Circle(id, attributes);
-    }
-    if (type === "ellipse") {
-      const attributes = numeric(["cx", "cy", "rx", "ry"], 4, 5);
-      if (args[4] !== undefined) attributes.set("fill", args[4]);
-      return new Ellipse(id, attributes);
-    }
-    if (type === "line") {
-      const attributes = numeric(["x1", "y1", "x2", "y2"], 4, 5);
-      if (args[4] !== undefined) attributes.set("stroke", args[4]);
-      return new Line(id, attributes);
-    }
-    if (type === "text") {
-      const attributes = numeric(["x", "y"], 3, 3);
-      return new TextShape(id, attributes, args[2]);
-    }
-    throw new Error(`unknown shape type: ${type} (is the plugin loaded?)`);
+    const provider = this.byType.get(type);
+    if (!provider) throw new Error(`unknown shape type: ${type} (is the plugin loaded?)`);
+    return provider.create(id, args);
   }
+
+  fromSvg(tag: string, id: string, attributes: Map<string, string>, content: string): Shape {
+    const kind = attributes.get("data-kind");
+    const provider = (kind ? this.bySvg.get(this.svgKey(tag, kind)) : undefined)
+      ?? this.bySvg.get(this.svgKey(tag));
+    if (!provider) throw new Error(`invalid SVG: unsupported element <${tag}>`);
+    return provider.restore(id, attributes, content);
+  }
+
+  private svgKey(tag: string, kind?: string): string { return `${tag}\u0000${kind ?? ""}`; }
 }

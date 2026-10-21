@@ -56,7 +56,7 @@ export class SvgParser {
     for (const child of Array.from(element.children)) {
       this.checkNamespace(child);
       const type = child.localName ?? child.tagName;
-      if (!this.factory.supports(type)) throw new Error(`invalid SVG: unsupported element <${type}>`);
+      if (!this.factory.supportsSvg(type)) throw new Error(`invalid SVG: unsupported element <${type}>`);
       const id = child.getAttribute("id");
       if (id) {
         if (!SvgDocument.isValidId(id)) throw new Error(`invalid SVG: invalid id: ${id}`);

@@ -4,6 +4,11 @@ export abstract class Shape {
   constructor(public readonly id: string, private readonly attributes: Map<string, string>) {}
 
   abstract readonly type: string;
+  get svgTag(): string { return this.type; }
+  get label(): string {
+    const base = `${this.svgTag}#${this.id}`;
+    return this.type === this.svgTag ? base : `${base} (${this.type})`;
+  }
   abstract summary(): string;
   abstract allowedAttributes(): ReadonlySet<string>;
   abstract move(dx: number, dy: number): void;

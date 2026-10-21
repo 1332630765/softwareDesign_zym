@@ -117,3 +117,15 @@ test("group collects shapes from different parents in document order and undoes 
   cli.dispatch("undo");
   assert.equal(cli.dispatch("tree"), before);
 });
+
+test("editing after init replaces the old document and keeps undo on the new one", () => {
+  const cli = new CommandDispatcher(new SvgEditor());
+  cli.dispatch("init 100 100");
+  cli.dispatch("create rect old 0 0 10 10");
+  cli.dispatch("init 200 200");
+  cli.dispatch("create circle fresh 20 20 5");
+  assert.doesNotMatch(cli.dispatch("tree"), /rect#old/);
+  assert.match(cli.dispatch("tree"), /circle#fresh/);
+  cli.dispatch("undo");
+  assert.equal(cli.dispatch("tree"), "svg (200x200)");
+});

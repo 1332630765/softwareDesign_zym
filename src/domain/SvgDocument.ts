@@ -4,7 +4,8 @@ import { Shape } from "./Shape.js";
 export class SvgDocument {
   static isValidId(id: string): boolean { return id.length > 0 && !/\s/u.test(id); }
 
-  readonly root = new Group("__root__");
+  // The virtual canvas root is never serialized or addressable by id.
+  readonly root = new Group("");
   private readonly rootAttributesValue: Map<string, string>;
 
   constructor(
@@ -62,12 +63,16 @@ export class SvgDocument {
   }
 
   restore(snapshot: SvgDocument): void {
+    // Prepare plugin-owned clones before touching the live document. A failing
+    // clone must leave both the current tree and its undo history usable.
+    const children = snapshot.root.children.map(child => child.clone());
+    const rootAttributes = new Map(snapshot.rootAttributes);
     for (const child of [...this.root.children]) this.root.remove(child);
     this.widthValue = snapshot.width;
     this.heightValue = snapshot.height;
     this.viewBoxValue = snapshot.viewBox;
     this.rootAttributesValue.clear();
-    for (const [name, value] of snapshot.rootAttributes) this.rootAttributesValue.set(name, value);
-    for (const child of snapshot.root.children) this.root.add(child.clone());
+    for (const [name, value] of rootAttributes) this.rootAttributesValue.set(name, value);
+    for (const child of children) this.root.add(child);
   }
 }

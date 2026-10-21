@@ -2,7 +2,8 @@ import { Shape } from "./Shape.js";
 import { ShapeSummary } from "./ShapeSummary.js";
 
 export class Group extends Shape {
-  readonly type = "g";
+  readonly type: string = "g";
+  get isComposite(): boolean { return false; }
   private readonly childrenValue: Shape[] = [];
 
   constructor(id: string, attributes = new Map<string, string>()) { super(id, attributes); }
